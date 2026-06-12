@@ -6,14 +6,18 @@ import { questions, type Answers } from '@/lib/questions'
 
 export default function AssessmentPage() {
   const router = useRouter()
+  const [authorized, setAuthorized] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Answers>({})
-  // 必须从首页进入，直接访问答题页则跳回首页
+
+  // 必须从首页进入，直接访问答题页则直接跳首页（不渲染任何答题内容）
   useEffect(() => {
-    if (!sessionStorage.getItem('assessment_started')) {
-      router.replace('/')
+    if (sessionStorage.getItem('assessment_started')) {
+      setAuthorized(true)
+    } else {
+      window.location.replace('/ai-assessment/')
     }
-  }, [router])
+  }, [])
 
   const [autoAdvance, setAutoAdvance] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
@@ -76,6 +80,9 @@ export default function AssessmentPage() {
   const canSubmit = questions.every(
     (q) => answers[q.id] && (q.type !== 'text' || answers[q.id].trim())
   )
+
+  // 未从首页进入，不渲染任何内容，等待跳转
+  if (!authorized) return null
 
   return (
     <main className="min-h-screen flex flex-col bg-background">
