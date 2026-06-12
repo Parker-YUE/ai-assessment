@@ -85,7 +85,7 @@ export default function AssessmentPage() {
               </button>
             ) : (
               <a
-                href="/"
+                href="/ai-assessment/"
                 className="text-sm text-text-secondary hover:text-foreground transition-opacity"
               >
                 ← 返回首页
