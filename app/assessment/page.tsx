@@ -8,6 +8,13 @@ export default function AssessmentPage() {
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Answers>({})
+  // 必须从首页进入，直接访问答题页则跳回首页
+  useEffect(() => {
+    if (!sessionStorage.getItem('assessment_started')) {
+      router.replace('/')
+    }
+  }, [router])
+
   const [autoAdvance, setAutoAdvance] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 

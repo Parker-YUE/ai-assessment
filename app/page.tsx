@@ -1,6 +1,11 @@
+'use client'
+
 import Link from 'next/link'
 
 export default function Home() {
+  const handleStart = () => {
+    sessionStorage.setItem('assessment_started', '1')
+  }
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
       {/* 装饰背景 */}
@@ -60,6 +65,7 @@ export default function Home() {
         {/* 开始按钮 */}
         <Link
           href="/assessment"
+          onClick={handleStart}
           className="inline-flex items-center justify-center w-full py-4 px-8 rounded-xl bg-gradient-to-r from-primary to-accent text-white font-semibold text-lg shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 active:scale-[0.98] transition-all duration-200"
         >
           开始测评
