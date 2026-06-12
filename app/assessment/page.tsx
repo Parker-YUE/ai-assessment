@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { questions, type Answers } from '@/lib/questions'
 
@@ -8,55 +8,51 @@ export default function AssessmentPage() {
   const router = useRouter()
   const [currentIndex, setCurrentIndex] = useState(0)
   const [answers, setAnswers] = useState<Answers>({})
-  const [direction, setDirection] = useState<'right' | 'left'>('right')
-
-  // 用 ref 避免闭包陷阱
-  const currentIndexRef = useRef(0)
-  currentIndexRef.current = currentIndex
+  const [autoAdvance, setAutoAdvance] = useState(false)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
 
   const totalQuestions = questions.length
   const currentQuestion = questions[currentIndex]
   const progress = ((currentIndex + 1) / totalQuestions) * 100
+  const isLastQuestion = currentIndex === totalQuestions - 1
 
-  // 选择题：选中后自动跳下一题
-  const handleSelect = useCallback(
-    (value: string) => {
-      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }))
-
-      // 延迟 400ms 让用户看到选中效果，然后自动跳题
-      setTimeout(() => {
-        const idx = currentIndexRef.current
-        if (idx < totalQuestions - 1) {
-          setDirection('right')
-          setCurrentIndex(idx + 1)
-        }
+  // 选择题选中后，触发自动跳题
+  useEffect(() => {
+    if (autoAdvance && !isLastQuestion) {
+      timerRef.current = setTimeout(() => {
+        setCurrentIndex((prev) => prev + 1)
+        setAutoAdvance(false)
       }, 400)
-    },
-    [currentQuestion.id, totalQuestions]
-  )
+    }
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [autoAdvance, isLastQuestion])
 
-  const handleTextChange = useCallback(
-    (value: string) => {
-      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }))
-    },
-    [currentQuestion.id]
-  )
+  function handleSelect(value: string) {
+    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }))
+    if (!isLastQuestion) {
+      setAutoAdvance(true)
+    }
+  }
 
-  const goToNext = useCallback(() => {
-    const idx = currentIndexRef.current
-    if (idx >= totalQuestions - 1) return
-    setDirection('right')
-    setCurrentIndex(idx + 1)
-  }, [totalQuestions])
+  function handleTextChange(value: string) {
+    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }))
+  }
 
-  const goToPrev = useCallback(() => {
-    const idx = currentIndexRef.current
-    if (idx <= 0) return
-    setDirection('left')
-    setCurrentIndex(idx - 1)
-  }, [])
+  function goToNext() {
+    if (currentIndex < totalQuestions - 1) {
+      setCurrentIndex((prev) => prev + 1)
+    }
+  }
 
-  const handleSubmit = useCallback(async () => {
+  function goToPrev() {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1)
+    }
+  }
+
+  function handleSubmit() {
     const unanswered = questions.filter(
       (q) => !answers[q.id] || (q.type === 'text' && !answers[q.id].trim())
     )
@@ -64,13 +60,11 @@ export default function AssessmentPage() {
       alert(`还有 ${unanswered.length} 题未完成，请回答后再提交`)
       return
     }
-
     sessionStorage.setItem('assessment_answers', JSON.stringify(answers))
     router.push('/result')
-  }, [answers, router])
+  }
 
   const isSelected = (value: string) => answers[currentQuestion.id] === value
-  const isLastQuestion = currentIndex === totalQuestions - 1
   const canGoNext = !!answers[currentQuestion.id]
   const canSubmit = questions.every(
     (q) => answers[q.id] && (q.type !== 'text' || answers[q.id].trim())
@@ -82,13 +76,21 @@ export default function AssessmentPage() {
       <div className="sticky top-0 z-20 bg-surface/80 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-lg mx-auto px-6 py-3">
           <div className="flex items-center justify-between mb-2">
-            <button
-              onClick={goToPrev}
-              disabled={currentIndex === 0}
-              className="text-sm text-text-secondary hover:text-foreground disabled:opacity-30 transition-opacity"
-            >
-              {currentIndex > 0 ? '上一题' : ''}
-            </button>
+            {currentIndex > 0 ? (
+              <button
+                onClick={goToPrev}
+                className="text-sm text-text-secondary hover:text-foreground transition-opacity"
+              >
+                ← 上一题
+              </button>
+            ) : (
+              <a
+                href="/"
+                className="text-sm text-text-secondary hover:text-foreground transition-opacity"
+              >
+                ← 返回首页
+              </a>
+            )}
             <span className="text-sm text-text-secondary">
               {currentIndex + 1} / {totalQuestions}
             </span>
@@ -104,18 +106,11 @@ export default function AssessmentPage() {
 
       {/* 题目区域 */}
       <div className="flex-1 flex items-start justify-center px-6 pt-12 pb-24">
-        <div
-          className={`max-w-lg w-full ${
-            direction === 'right' ? 'slide-in-right' : 'slide-in-left'
-          }`}
-          key={currentIndex}
-        >
-          {/* 题目标题 */}
+        <div className="max-w-lg w-full" key={currentIndex}>
           <h2 className="text-xl font-bold mb-6 leading-relaxed">
             {currentQuestion.title}
           </h2>
 
-          {/* 选择题 */}
           {currentQuestion.type === 'choice' && currentQuestion.options && (
             <div className="space-y-3">
               {currentQuestion.options.map((option) => (
@@ -134,7 +129,6 @@ export default function AssessmentPage() {
             </div>
           )}
 
-          {/* 简答题 */}
           {currentQuestion.type === 'text' && (
             <div>
               <textarea

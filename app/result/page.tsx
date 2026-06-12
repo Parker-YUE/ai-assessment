@@ -12,7 +12,6 @@ interface DimensionResult {
 }
 
 interface AnalysisResult {
-  source: string
   dimensions: DimensionResult[]
   transferableSkills: string[]
   mindsetScore: number
@@ -22,15 +21,15 @@ interface AnalysisResult {
 
 // SVG 雷达图组件
 function RadarChart({ dimensions }: { dimensions: DimensionResult[] }) {
-  const size = 260
+  const size = 320
   const center = size / 2
-  const radius = 100
+  const radius = 80
   const levels = 4
+  const labelR = radius + 14 // 标签贴近顶点
 
   const angleStep = (2 * Math.PI) / 5
   const startAngle = -Math.PI / 2
 
-  // 网格点
   const getPoint = (index: number, r: number) => {
     const angle = startAngle + index * angleStep
     return {
@@ -39,18 +38,22 @@ function RadarChart({ dimensions }: { dimensions: DimensionResult[] }) {
     }
   }
 
-  // 数据区域
   const dataPoints = dimensions.map((d, i) => {
     const r = (d.score / 100) * radius
     return getPoint(i, r)
   })
 
-  const dataPath = dataPoints
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
-    .join(' ') + ' Z'
+  // 5个顶点的角度和方向偏移
+  const labelConfigs: { textAnchor: 'start' | 'middle' | 'end'; dx: number; dy: number }[] = [
+    { textAnchor: 'middle', dx: 0, dy: -6 },
+    { textAnchor: 'start', dx: 6, dy: 2 },
+    { textAnchor: 'start', dx: 6, dy: 6 },
+    { textAnchor: 'end', dx: -6, dy: 6 },
+    { textAnchor: 'end', dx: -6, dy: 2 },
+  ]
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="mx-auto">
+    <svg width="100%" viewBox={`0 0 ${size} ${size}`} className="mx-auto max-w-[320px]">
       {/* 网格 */}
       {Array.from({ length: levels }, (_, level) => {
         const r = ((level + 1) / levels) * radius
@@ -59,30 +62,14 @@ function RadarChart({ dimensions }: { dimensions: DimensionResult[] }) {
           return `${p.x},${p.y}`
         }).join(' ')
         return (
-          <polygon
-            key={level}
-            points={points}
-            fill="none"
-            stroke="#e2e8f0"
-            strokeWidth="1"
-          />
+          <polygon key={level} points={points} fill="none" stroke="#e2e8f0" strokeWidth="1" />
         )
       })}
 
       {/* 轴线 */}
       {Array.from({ length: 5 }, (_, i) => {
         const p = getPoint(i, radius)
-        return (
-          <line
-            key={i}
-            x1={center}
-            y1={center}
-            x2={p.x}
-            y2={p.y}
-            stroke="#e2e8f0"
-            strokeWidth="1"
-          />
-        )
+        return <line key={i} x1={center} y1={center} x2={p.x} y2={p.y} stroke="#e2e8f0" strokeWidth="1" />
       })}
 
       {/* 数据区域 */}
@@ -96,30 +83,25 @@ function RadarChart({ dimensions }: { dimensions: DimensionResult[] }) {
 
       {/* 数据点 */}
       {dataPoints.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r="4"
-          fill="#4f46e5"
-          stroke="white"
-          strokeWidth="2"
-        />
+        <circle key={i} cx={p.x} cy={p.y} r="4" fill="#4f46e5" stroke="white" strokeWidth="2" />
       ))}
 
-      {/* 维度标签 */}
+      {/* 维度标签 - 贴近顶点 */}
       {dimensions.map((d, i) => {
-        const labelR = radius + 28
-        const p = getPoint(i, labelR)
+        const angle = startAngle + i * angleStep
+        const lx = center + labelR * Math.cos(angle)
+        const ly = center + labelR * Math.sin(angle)
+        const cfg = labelConfigs[i]
+
         return (
           <text
             key={i}
-            x={p.x}
-            y={p.y}
-            textAnchor="middle"
+            x={lx + cfg.dx}
+            y={ly + cfg.dy}
+            textAnchor={cfg.textAnchor}
             dominantBaseline="central"
-            className="text-xs fill-foreground font-medium"
-            fontSize="12"
+            className="fill-foreground font-medium"
+            fontSize="11"
           >
             {d.name}
           </text>
@@ -161,17 +143,11 @@ export default function ResultPage() {
         }
         const answers: Answers = JSON.parse(stored)
 
-        const res = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ answers }),
-        })
-
-        if (!res.ok) {
-          throw new Error('分析请求失败')
-        }
-
-        const data = await res.json()
+        // 客户端直接调用 DeepSeek API（GitHub Pages 无服务端）
+        const { calculateRuleBasedScores } = await import('@/lib/scoring')
+        const { analyzeWithAI } = await import('@/lib/deepseek')
+        const ruleScores = calculateRuleBasedScores(answers)
+        const data = await analyzeWithAI(answers, ruleScores)
         setResult(data)
       } catch (err) {
         console.error(err)
@@ -268,7 +244,7 @@ export default function ResultPage() {
   const totalScore = result.totalScore || Math.round(result.dimensions.reduce((s, d) => s + d.score, 0) / 5)
 
   return (
-    <main className="min-h-screen bg-background pb-32">
+    <main className="min-h-screen bg-background pb-52">
       {/* 分享卡片区域（可截图） */}
       <div ref={shareCardRef} className="bg-background">
         {/* 头部：总分 */}

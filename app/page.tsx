@@ -82,7 +82,6 @@ export default function Home() {
         <div className="mt-10 pt-6 border-t border-gray-200">
           <p className="text-sm text-text-secondary mb-1">咨询联系</p>
           <p className="text-base font-medium">丘山 · 微信：allen20255</p>
-          <p className="text-xs text-text-secondary mt-1">7年地产→大厂AI产品经理，帮你规划转型路径</p>
         </div>
 
         {/* 底部信任信息 */}
